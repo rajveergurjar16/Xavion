@@ -221,7 +221,7 @@ export function buildHelpPayload(
 
   const embed = new EmbedBuilder()
     .setColor(embedColor)
-    .setTitle("Flexy Help Menu")
+    .setTitle("Xavion Help Menu")
     .setThumbnail(client?.user?.displayAvatarURL({ size: 256 }) ?? null)
     .setFooter({
       text: `Requested by ${requester ? `@${requester.username}` : "Unknown User"}`,
