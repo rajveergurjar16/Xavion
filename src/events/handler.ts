@@ -98,7 +98,7 @@ export function registerHandlers(client: Client): void {
 
 async function runCommand(command: Command, ctx: CommandContext): Promise<void> {
   const me = ctx.guild.members.me;
-  await ctx.startLoading?.(loadingMessage(command, ctx));
+  await ctx.startLoading?.(loadingMessage(command, ctx), command.name !== "purge");
   if (!me) return ctx.reply("I could not resolve my server member. Please try again.", true, "error");
 
   if (command.developerOnly && !config.DEVELOPER_IDS.includes(ctx.member.id)) {
@@ -151,9 +151,9 @@ function prefixContext(
   let editedLoading = false;
 
   const sendPayload = async (payload: CommandReplyPayload): Promise<void> => {
+    const sanitizedPayload = stripEphemeralFlagFromPayload(payload);
     const messagePayload = {
-      ...payload,
-      flags: undefined,
+      ...sanitizedPayload,
       allowedMentions: payload.allowedMentions ?? { repliedUser: false }
     } as Parameters<Message<true>["reply"]>[0];
     if (loadingMessage && !editedLoading) {
@@ -182,11 +182,14 @@ function prefixContext(
     guild: message.guild,
     member,
     channel,
-    async startLoading(content) {
-      loadingMessage = await message.reply({
+    async startLoading(content, replyToUser = true) {
+      const payload = {
         embeds: [responseEmbed(content, "loading")],
         allowedMentions: { repliedUser: false }
-      });
+      };
+      loadingMessage = replyToUser
+        ? await message.reply(payload)
+        : await channel.send(payload);
     },
     getLoadingMessageId() {
       return loadingMessage?.id ?? null;
@@ -278,6 +281,23 @@ function stripEphemeralFlag(
   }
   return flags === MessageFlags.Ephemeral
     ? { ...payload, flags: undefined }
+    : payload;
+}
+
+function stripEphemeralFlagFromPayload<T>(payload: T): T {
+  if (typeof payload !== "object" || payload === null || !("flags" in payload)) {
+    return payload;
+  }
+  const record = payload as Record<string, unknown>;
+  const flags = record.flags;
+  if (Array.isArray(flags)) {
+    return {
+      ...record,
+      flags: flags.filter((flag) => flag !== MessageFlags.Ephemeral)
+    } as T;
+  }
+  return flags === MessageFlags.Ephemeral
+    ? { ...record, flags: undefined } as T
     : payload;
 }
 

@@ -5,6 +5,7 @@ import {
   type Message
 } from "discord.js";
 import { extractId } from "../utils.js";
+import { responseEmbed } from "../ui/embeds.js";
 import { prefixArgs, slash } from "./helpers.js";
 import type { Command, CommandContext } from "./types.js";
 import { sendModerationLog } from "../services/modlogs.js";
@@ -76,13 +77,19 @@ export const purgeCommand: Command = {
       details: `${deleted.size} message(s) deleted.`,
       dmStatus: "not_applicable"
     });
-    await ctx.reply(
-      `Deleted **${deleted.size}** message(s)${
-        parsed.userId ? ` from <@${parsed.userId}>` : ""
-      }. Messages older than 14 days are skipped.`,
-      true,
-      "success"
-    );
+    const content = `Deleted **${deleted.size}** message(s)${
+      parsed.userId ? ` from <@${parsed.userId}>` : ""
+    }. Messages older than 14 days are skipped.`;
+    if (ctx.source.kind === "prefix") {
+      const sent = await ctx.channel.send({
+        embeds: [responseEmbed(content, "success")],
+        allowedMentions: { users: [], roles: [] }
+      });
+      setTimeout(() => void sent.delete().catch(() => undefined), 8_000);
+      return;
+    }
+
+    await ctx.reply(content, true, "success");
   }
 };
 

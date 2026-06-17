@@ -29,7 +29,7 @@ export interface CommandContext {
   guild: Guild;
   member: GuildMember;
   channel: GuildTextBasedChannel;
-  startLoading?(content: string): Promise<void>;
+  startLoading?(content: string, replyToUser?: boolean): Promise<void>;
   getLoadingMessageId?(): string | null;
   reply(content: string, ephemeral?: boolean, tone?: ReplyTone): Promise<void>;
   replyPayload?(payload: CommandReplyPayload, ephemeral?: boolean): Promise<void>;
