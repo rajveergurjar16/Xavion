@@ -1,7 +1,8 @@
 export const emojis = {
   success: "<:Xavion_tick:1514856104943947786>",
   error: "<:Xavion_cross:1514856199592476672>",
-  info: "<:Xavion_info:1514856459765022750>"
+  info: "<:Xavion_info:1514856459765022750>",
+  loading: "<a:Xavion_Loading:1516101832085344358>"
 } as const;
 
 export type ReplyTone = keyof typeof emojis;

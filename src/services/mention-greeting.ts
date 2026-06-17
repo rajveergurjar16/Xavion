@@ -88,8 +88,8 @@ export async function handleMentionHelpButton(
   }
 
   await interaction.reply({
-    ...buildHelpPayload(requesterId, "home"),
-    flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]
+    ...buildHelpPayload(requesterId, "home", interaction.client, interaction.user),
+    flags: MessageFlags.Ephemeral
   });
   return true;
 }

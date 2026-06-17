@@ -122,6 +122,7 @@ async function collectMessages(
 
     for (const message of batch.values()) {
       if (message.createdTimestamp <= cutoff) return collected;
+      if (message.id === ctx.getLoadingMessageId?.()) continue;
       if (!userId || message.author.id === userId) {
         collected.set(message.id, message);
         if (collected.size >= amount) break;

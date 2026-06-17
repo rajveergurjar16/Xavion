@@ -38,3 +38,9 @@ export interface NoPrefixUserDocument {
   addedBy: string;
   addedAt: Date;
 }
+
+export interface AfkUserDocument {
+  userId: string;
+  reason: string;
+  setAt: Date;
+}

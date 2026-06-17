@@ -319,6 +319,122 @@ export const unbanCommand: Command = {
   }
 };
 
+export const massBanCommand: Command = {
+  name: "massban",
+  aliases: ["mban"],
+  description: "Ban multiple users from the server",
+  userPermissions: [PermissionFlagsBits.BanMembers],
+  botPermissions: [PermissionFlagsBits.BanMembers],
+  slash: new SlashCommandBuilder()
+    .setName("massban")
+    .setDescription("Ban multiple users from the server")
+    .addStringOption((option) =>
+      option
+        .setName("users")
+        .setDescription("Mentions or user IDs separated by spaces")
+        .setRequired(true)
+        .setMaxLength(1_500)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("reason")
+        .setDescription("Reason recorded in the audit log")
+        .setMaxLength(512)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+  async execute(ctx) {
+    const parsed = parseMassTargetInput(ctx, "users", 0, 512);
+    if (!parsed.ids.length) {
+      return ctx.reply("Usage: `Xmassban @user1 @user2 @user3 [reason]`.", true, "error");
+    }
+
+    const reason = parsed.reason || `Mass banned by ${ctx.member.user.tag}`;
+    const results = await Promise.all(
+      parsed.ids.map((userId) => massBanUser(ctx, userId, reason))
+    );
+    const successful = results.filter((result) => result.ok);
+    const failed = results.filter((result) => !result.ok);
+    await sendModerationLog(ctx.guild, {
+      action: "Mass Ban",
+      moderatorId: ctx.member.id,
+      target: `${successful.length}/${results.length} user(s) banned`,
+      reason,
+      details: formatMassResults(results),
+      dmStatus: "not_applicable"
+    });
+    await ctx.reply(
+      [
+        `Mass ban completed by <@${ctx.member.id}>.`,
+        `**Banned:** ${successful.length}`,
+        `**Failed:** ${failed.length}`,
+        `**Reason:** ${reason}`,
+        "",
+        formatMassResults(results)
+      ].join("\n"),
+      false,
+      failed.length ? "info" : "success"
+    );
+  }
+};
+
+export const massUnbanCommand: Command = {
+  name: "massunban",
+  aliases: ["munban", "mub"],
+  description: "Remove bans from multiple users",
+  userPermissions: [PermissionFlagsBits.BanMembers],
+  botPermissions: [PermissionFlagsBits.BanMembers],
+  slash: new SlashCommandBuilder()
+    .setName("massunban")
+    .setDescription("Remove bans from multiple users")
+    .addStringOption((option) =>
+      option
+        .setName("users")
+        .setDescription("Mentions or user IDs separated by spaces")
+        .setRequired(true)
+        .setMaxLength(1_500)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("reason")
+        .setDescription("Reason recorded in the audit log")
+        .setMaxLength(512)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+  async execute(ctx) {
+    const parsed = parseMassTargetInput(ctx, "users", 0, 512);
+    if (!parsed.ids.length) {
+      return ctx.reply("Usage: `Xmassunban @user1 @user2 @user3 [reason]`.", true, "error");
+    }
+
+    const reason = parsed.reason || `Mass unbanned by ${ctx.member.user.tag}`;
+    const results = await Promise.all(
+      parsed.ids.map((userId) => massUnbanUser(ctx, userId, reason))
+    );
+    const successful = results.filter((result) => result.ok);
+    const failed = results.filter((result) => !result.ok);
+    await sendModerationLog(ctx.guild, {
+      action: "Mass Unban",
+      moderatorId: ctx.member.id,
+      target: `${successful.length}/${results.length} user(s) unbanned`,
+      reason,
+      details: formatMassResults(results),
+      dmStatus: "not_applicable"
+    });
+    await ctx.reply(
+      [
+        `Mass unban completed by <@${ctx.member.id}>.`,
+        `**Unbanned:** ${successful.length}`,
+        `**Failed:** ${failed.length}`,
+        `**Reason:** ${reason}`,
+        "",
+        formatMassResults(results)
+      ].join("\n"),
+      false,
+      failed.length ? "info" : "success"
+    );
+  }
+};
+
 export const kickCommand: Command = {
   name: "kick",
   aliases: ["kickuser"],
@@ -496,7 +612,123 @@ export const moderationCommands: Command[] = [
   nicknameCommand,
   banCommand,
   unbanCommand,
+  massBanCommand,
+  massUnbanCommand,
   kickCommand,
   timeoutCommand,
   untimeoutCommand
 ];
+
+interface MassResult {
+  id: string;
+  ok: boolean;
+  message: string;
+}
+
+function parseMassTargetInput(
+  ctx: Parameters<Command["execute"]>[0],
+  optionName: string,
+  argIndex: number,
+  reasonMaxLength: number
+): { ids: string[]; reason: string | null } {
+  const interaction = slash(ctx);
+  if (interaction) {
+    return {
+      ids: uniqueIds(interaction.options.getString(optionName, true)),
+      reason: interaction.options.getString("reason")?.slice(0, reasonMaxLength) ?? null
+    };
+  }
+
+  const args = prefixArgs(ctx).slice(argIndex);
+  const ids: string[] = [];
+  let reasonStart = args.length;
+  for (const [index, arg] of args.entries()) {
+    const id = extractId(arg);
+    if (!id) {
+      reasonStart = index;
+      break;
+    }
+    ids.push(id);
+  }
+  return {
+    ids: [...new Set(ids)],
+    reason: args.slice(reasonStart).join(" ").trim().slice(0, reasonMaxLength) || null
+  };
+}
+
+function uniqueIds(input: string): string[] {
+  return [...new Set([...input.matchAll(/\d{17,20}/g)].map((match) => match[0]))];
+}
+
+async function massBanUser(
+  ctx: Parameters<Command["execute"]>[0],
+  userId: string,
+  reason: string
+): Promise<MassResult> {
+  const member = await ctx.guild.members.fetch(userId).catch(() => null);
+  if (member) {
+    const error = hierarchyError(ctx.member, member, ctx.guild.members.me!);
+    if (error) return { id: userId, ok: false, message: error };
+    if (!member.bannable) return { id: userId, ok: false, message: "I cannot ban this member." };
+  }
+
+  const alreadyBanned = await ctx.guild.bans.fetch(userId).catch(() => null);
+  if (alreadyBanned) return { id: userId, ok: false, message: "Already banned." };
+
+  const user = await ctx.guild.client.users.fetch(userId).catch(() => null);
+  try {
+    await ctx.guild.members.ban(userId, { reason });
+  } catch (error) {
+    return {
+      id: userId,
+      ok: false,
+      message: error instanceof Error ? error.message : "Ban failed."
+    };
+  }
+  if (user) {
+    await sendModerationDm(user, {
+      action: "Banned",
+      guildName: ctx.guild.name,
+      moderatorId: ctx.member.id,
+      reason
+    });
+  }
+  return { id: userId, ok: true, message: "Banned." };
+}
+
+async function massUnbanUser(
+  ctx: Parameters<Command["execute"]>[0],
+  userId: string,
+  reason: string
+): Promise<MassResult> {
+  const ban = await ctx.guild.bans.fetch(userId).catch(() => null);
+  if (!ban) return { id: userId, ok: false, message: "Not banned." };
+
+  try {
+    await ctx.guild.members.unban(userId, reason);
+  } catch (error) {
+    return {
+      id: userId,
+      ok: false,
+      message: error instanceof Error ? error.message : "Unban failed."
+    };
+  }
+  await sendModerationDm(ban.user, {
+    action: "Unbanned",
+    guildName: ctx.guild.name,
+    moderatorId: ctx.member.id,
+    reason
+  });
+  return { id: userId, ok: true, message: "Unbanned." };
+}
+
+function formatMassResults(results: MassResult[]): string {
+  return results
+    .slice(0, 20)
+    .map((result) =>
+      result.ok
+        ? `<@${result.id}>: ${result.message}`
+        : `<@${result.id}>: Failed - ${result.message}`
+    )
+    .join("\n") || "No targets processed.";
+}

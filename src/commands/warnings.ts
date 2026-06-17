@@ -191,14 +191,7 @@ export const warningsCommand: Command = {
       ctx.member.id,
       0
     );
-    if (ctx.source.kind === "slash") {
-      await ctx.source.interaction.reply({
-        ...payload,
-        flags: MessageFlags.Ephemeral
-      });
-    } else {
-      await ctx.source.message.reply(payload);
-    }
+    await ctx.replyPayload?.({ ...payload, flags: MessageFlags.Ephemeral }, true);
   }
 };
 

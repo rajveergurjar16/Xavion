@@ -1,19 +1,16 @@
 import {
   ActionRowBuilder,
-  ButtonBuilder,
   ButtonInteraction,
-  ButtonStyle,
-  ContainerBuilder,
+  EmbedBuilder,
   MessageFlags,
-  SeparatorBuilder,
   SlashCommandBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuInteraction,
   StringSelectMenuOptionBuilder,
-  TextDisplayBuilder
+  type Client,
+  type User
 } from "discord.js";
 import { config, embedColor } from "../config.js";
-import { emojis } from "../ui/emojis.js";
 import { responseEmbed } from "../ui/embeds.js";
 import type { Command } from "./types.js";
 
@@ -22,202 +19,140 @@ type HelpCategory = {
   label: string;
   description: string;
   developerOnly?: boolean;
-  commands: HelpCommand[];
+  commands: string[];
+  aliases: string[];
 };
 
-type HelpCommand = {
-  usage: string;
-  description: string;
-  aliases?: string[];
-};
+const invitePermissions = "1374525156374";
 
 const categories: HelpCategory[] = [
   {
     id: "moderation",
     label: "Moderation",
-    description: "Member discipline and server safety.",
+    description: "Moderation and server safety commands.",
     commands: [
-      {
-        usage: "ban <@user|userID> [reason]",
-        description: "Ban a mention or user ID.",
-        aliases: ["banuser"]
-      },
-      {
-        usage: "unban <userID> [reason]",
-        description: "Remove a user's ban.",
-        aliases: ["ub"]
-      },
-      {
-        usage: "kick <@user> [reason]",
-        description: "Kick a server member.",
-        aliases: ["kickuser"]
-      },
-      {
-        usage: "timeout <@user> <duration> [reason]",
-        description: "Apply or extend a member timeout.",
-        aliases: ["mute"]
-      },
-      {
-        usage: "untimeout <@user> [reason]",
-        description: "Remove an active timeout.",
-        aliases: ["unmute"]
-      },
-      {
-        usage: "nickname <@user> [nickname]",
-        description: "Change or reset a member's nickname.",
-        aliases: ["nick"]
-      },
-      {
-        usage: "nickname channel set <#channel>",
-        description: "Add a nickname channel."
-      },
-      {
-        usage: "nickname channel remove <#channel>",
-        description: "Remove a nickname channel."
-      },
-      {
-        usage: "nickname channel list",
-        description: "List configured nickname channels."
-      },
-      {
-        usage: "purge <1-100>",
-        description: "Delete recent messages.",
-        aliases: ["clear"]
-      },
-      {
-        usage: "purge <@user|userID> <1-100>",
-        description: "Delete recent messages from one user.",
-        aliases: ["clear"]
-      }
+      "ban",
+      "unban",
+      "massban",
+      "massunban",
+      "kick",
+      "timeout",
+      "untimeout",
+      "warn",
+      "removewarn",
+      "warnings",
+      "warnconfig add",
+      "warnconfig remove",
+      "warnconfig list",
+      "warnconfig clear",
+      "nickname",
+      "nickname channel set",
+      "nickname channel remove",
+      "nickname channel list",
+      "purge",
+      "role add",
+      "role remove",
+      "lock",
+      "unlock",
+      "hide",
+      "unhide"
+    ],
+    aliases: [
+      "banuser",
+      "ub",
+      "mban",
+      "munban",
+      "mub",
+      "kickuser",
+      "mute",
+      "unmute",
+      "warning",
+      "delwarn",
+      "rw",
+      "warns",
+      "wconfig",
+      "nick",
+      "clear",
+      "roles",
+      "lockchannel",
+      "unlockchannel",
+      "hidechannel",
+      "unhidechannel"
     ]
   },
   {
-    id: "warnings",
-    label: "Warnings",
-    description: "Track infractions and automate consequences.",
+    id: "utility",
+    label: "Utility",
+    description: "Everyday utility commands.",
     commands: [
-      {
-        usage: "warn <@user> <reason>",
-        description: "Add a warning to a member.",
-        aliases: ["warning"]
-      },
-      {
-        usage: "removewarn <warningID>",
-        description: "Remove a warning by ID.",
-        aliases: ["delwarn", "rw"]
-      },
-      {
-        usage: "warnings <@user|userID>",
-        description: "Browse a member's warning history.",
-        aliases: ["warns"]
-      },
-      {
-        usage: "warnconfig add <count> timeout <duration>",
-        description: "Add an automatic timeout threshold.",
-        aliases: ["wconfig"]
-      },
-      {
-        usage: "warnconfig add <count> <kick|ban>",
-        description: "Add an automatic kick or ban threshold.",
-        aliases: ["wconfig"]
-      },
-      {
-        usage: "warnconfig remove <count>",
-        description: "Remove one warning action.",
-        aliases: ["wconfig"]
-      },
-      {
-        usage: "warnconfig list",
-        description: "List automatic warning actions.",
-        aliases: ["wconfig"]
-      },
-      {
-        usage: "warnconfig clear",
-        description: "Clear all automatic warning actions.",
-        aliases: ["wconfig"]
-      }
+      "help",
+      "ping",
+      "snipe",
+      "say",
+      "avatar",
+      "afk",
+      "slowmode"
+    ],
+    aliases: [
+      "commands",
+      "latency",
+      "snipes",
+      "announce",
+      "av",
+      "pfp",
+      "away",
+      "slow"
     ]
   },
   {
-    id: "channels",
-    label: "Channels",
-    description: "Control text, forum, voice, and stage access.",
+    id: "information",
+    label: "Information",
+    description: "Bot, server, and user information.",
     commands: [
-      {
-        usage: "lock [#channel|channelID]",
-        description: "Lock messages or voice connections.",
-        aliases: ["lockchannel"]
-      },
-      {
-        usage: "unlock [#channel|channelID]",
-        description: "Restore messages or voice connections.",
-        aliases: ["unlockchannel"]
-      },
-      {
-        usage: "hide [#channel|channelID]",
-        description: "Hide a channel from everyone.",
-        aliases: ["hidechannel"]
-      },
-      {
-        usage: "unhide [#channel|channelID]",
-        description: "Restore channel visibility.",
-        aliases: ["unhidechannel"]
-      }
+      "botinfo",
+      "serverinfo",
+      "userinfo"
+    ],
+    aliases: [
+      "bi",
+      "aboutbot",
+      "si",
+      "guildinfo",
+      "ui",
+      "whois"
     ]
   },
   {
-    id: "systems",
-    label: "Systems",
-    description: "General Xavion tools and event systems.",
+    id: "giveaway",
+    label: "Giveaway",
+    description: "Giveaway management commands.",
     commands: [
-      {
-        usage: "help",
-        description: "Open this command deck.",
-        aliases: ["commands"]
-      },
-      {
-        usage: "ping",
-        description: "Measure API and database latency.",
-        aliases: ["latency"]
-      },
-      {
-        usage: "giveaway start <duration> <winners> <prize>",
-        description: "Start a giveaway.",
-        aliases: ["gstart", "gaw"]
-      },
-      {
-        usage: "giveaway end <messageID>",
-        description: "End a giveaway immediately.",
-        aliases: ["gstart", "gaw"]
-      },
-      {
-        usage: "giveaway reroll <messageID>",
-        description: "Reroll an ended giveaway.",
-        aliases: ["gstart", "gaw"]
-      }
+      "giveaway start",
+      "giveaway end",
+      "giveaway reroll",
+      "giveaway info",
+      "giveaway list"
+    ],
+    aliases: [
+      "gstart",
+      "gaw"
     ]
   },
   {
-    id: "developer",
-    label: "Developer",
-    description: "Global controls reserved for Xavion developers.",
+    id: "developers",
+    label: "Developers",
+    description: "Developer-only global controls.",
     developerOnly: true,
     commands: [
-      {
-        usage: "npadd <@user|userID>",
-        description: "Grant global no-prefix access.",
-        aliases: ["npa"]
-      },
-      {
-        usage: "nprem <@user|userID>",
-        description: "Remove global no-prefix access.",
-        aliases: ["npr", "npremove"]
-      },
-      {
-        usage: "npusers",
-        description: "Browse global no-prefix users.",
-        aliases: ["nplist"]
-      }
+      "npadd",
+      "nprem",
+      "npusers"
+    ],
+    aliases: [
+      "npa",
+      "npr",
+      "npremove",
+      "nplist"
     ]
   }
 ];
@@ -225,23 +160,21 @@ const categories: HelpCategory[] = [
 export const helpCommand: Command = {
   name: "help",
   aliases: ["commands"],
-  description: "Open Xavion's command deck",
+  description: "Open Xavion's help menu",
   slash: new SlashCommandBuilder()
     .setName("help")
-    .setDescription("Open Xavion's command deck"),
+    .setDescription("Open Xavion's help menu"),
   async execute(ctx) {
-    const payload = buildHelpPayload(ctx.member.id, "home");
-    if (ctx.source.kind === "slash") {
-      await ctx.source.interaction.reply({
-        ...payload,
-        flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]
-      });
-    } else {
-      await ctx.source.message.reply({
-        ...payload,
-        flags: MessageFlags.IsComponentsV2
-      });
-    }
+    const payload = buildHelpPayload(
+      ctx.member.id,
+      "home",
+      ctx.guild.client,
+      ctx.member.user
+    );
+    await ctx.replyPayload?.(
+      { ...payload, flags: MessageFlags.Ephemeral },
+      true
+    );
   }
 };
 
@@ -252,66 +185,97 @@ export async function handleHelpInteraction(
   const [, action, requesterId] = interaction.customId.split(":");
   if (!requesterId || interaction.user.id !== requesterId) {
     await interaction.reply({
-      embeds: [responseEmbed("This command deck belongs to another user.", "error")],
+      embeds: [responseEmbed("This help menu belongs to another user.", "error")],
       flags: MessageFlags.Ephemeral
     });
     return true;
   }
 
-  if (action === "close" && interaction.isButton()) {
-    const closed = new ContainerBuilder()
-      .setAccentColor(embedColor)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `${emojis.info} | Xavion's command deck has been closed.`
-        )
-      );
-    await interaction.update({ components: [closed] });
-    return true;
-  }
-
   const category = interaction.isStringSelectMenu()
     ? interaction.values[0] ?? "home"
-    : "home";
-  await interaction.update(buildHelpPayload(requesterId, category));
+    : action ?? "home";
+  await interaction.update(
+    buildHelpPayload(requesterId, category, interaction.client, interaction.user)
+  );
   return true;
 }
 
 export function buildHelpPayload(
   requesterId: string,
-  selectedId: string
+  selectedId: string,
+  client?: Client,
+  requester?: User
 ) {
   const visible = visibleCategories(requesterId);
   const selected = visible.find((category) => category.id === selectedId);
+  const totalGuilds = client?.guilds.cache.size ?? 0;
+  const totalUsers =
+    client?.guilds.cache.reduce(
+      (total, guild) => total + (guild.memberCount ?? 0),
+      0
+    ) ?? 0;
   const commandCount = visible.reduce(
     (total, category) => total + category.commands.length,
     0
   );
-  const body = selected
-    ? [
-        `## ${selected.label}`,
-        `-# ${selected.description}`,
-        "",
-        ...selected.commands.map(formatHelpCommand)
-      ].join("\n")
-    : [
-        `## ${emojis.info} Xavion Command Deck`,
-        "Choose a module below to inspect its commands.",
-        "",
-        `**Prefix:** \`${config.PREFIX}\``,
-        `**Categories:** \`${visible.length}\``,
-        `**Command usages:** \`${commandCount}\``,
-        "",
-        "-# Required: <value> • Optional: [value]"
-      ].join("\n");
+
+  const embed = new EmbedBuilder()
+    .setColor(embedColor)
+    .setTitle("Flexy Help Menu")
+    .setThumbnail(client?.user?.displayAvatarURL({ size: 256 }) ?? null)
+    .setFooter({
+      text: `Requested by ${requester ? `@${requester.username}` : "Unknown User"}`,
+      ...(requester ? { iconURL: requester.displayAvatarURL({ size: 64 }) } : {})
+    });
+
+  if (selected) {
+    embed.addFields(
+      {
+        name: "Commands",
+        value: `> ${formatCommandList(selected.commands)}`
+      },
+      {
+        name: "Alias",
+        value: `> ${
+          selected.aliases.length
+            ? formatCommandList(selected.aliases)
+            : "No aliases"
+        }`
+      }
+    );
+  } else {
+    embed
+      .addFields(
+        {
+          name: "__**Basic Information:**__",
+          value: [
+            `> Server Prefix : ${config.PREFIX}`,
+            `> Total Users : ${totalUsers.toLocaleString("en-US")}`,
+            `> Total Guilds : ${totalGuilds.toLocaleString("en-US")}`,
+            `> Commands Used : ${commandCount.toLocaleString("en-US")} (Global)`
+          ].join("\n")
+        },
+        {
+          name: "__**Categories**__",
+          value: [homeLabel(), ...visible.map((category) => category.label)]
+            .map((label) => `> ${label}`)
+            .join("\n")
+        },
+        {
+          name: "__**Useful Links**__",
+          value: `[Invite Xavion](${botInviteUrl()}) | [support server](${config.SUPPORT_SERVER_URL})`
+        }
+      )
+      .setDescription("-# select a Category from dropdown menu");
+  }
 
   const selector = new StringSelectMenuBuilder()
     .setCustomId(`xhelp:select:${requesterId}`)
-    .setPlaceholder("Choose a command module")
+    .setPlaceholder("Select a Category")
     .addOptions(
       new StringSelectMenuOptionBuilder()
-        .setLabel("Command Deck")
-        .setDescription("Return to the overview")
+        .setLabel(homeLabel())
+        .setDescription("Return to the help menu home")
         .setValue("home")
         .setDefault(!selected),
       ...visible.map((category) =>
@@ -322,36 +286,19 @@ export function buildHelpPayload(
           .setDefault(selected?.id === category.id)
       )
     );
-  const controls = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`xhelp:home:${requesterId}`)
-      .setLabel("Overview")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(!selected),
-    new ButtonBuilder()
-      .setCustomId(`xhelp:close:${requesterId}`)
-      .setLabel("Close")
-      .setStyle(ButtonStyle.Secondary)
-  );
-  const container = new ContainerBuilder()
-    .setAccentColor(embedColor)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent("# XAVION // COMMAND DECK")
-    )
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(body))
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addActionRowComponents(
-      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selector)
-    )
-    .addActionRowComponents(controls)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        "-# Prefix and slash commands share the same permission checks."
-      )
-    );
 
-  return { components: [container] };
+  return {
+    embeds: [embed],
+    components: [
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selector)
+    ]
+  };
+}
+
+function formatCommandList(commands: string[]): string {
+  return commands
+    .map((command) => `${config.PREFIX}${command}`)
+    .join(", ");
 }
 
 function visibleCategories(userId: string): HelpCategory[] {
@@ -361,13 +308,13 @@ function visibleCategories(userId: string): HelpCategory[] {
   );
 }
 
-function formatHelpCommand(command: HelpCommand): string {
-  const aliases = command.aliases?.length
-    ? `\n-# Aliases: ${command.aliases
-        .map((alias) => `\`${alias}\``)
-        .join(", ")}`
-    : "";
-  return [`**${config.PREFIX}${command.usage}**`, `-# ${command.description}`, aliases]
-    .filter(Boolean)
-    .join("\n");
+function homeLabel(): string {
+  return "Home";
+}
+
+function botInviteUrl(): string {
+  return (
+    config.BOT_INVITE_URL ??
+    `https://discord.com/oauth2/authorize?client_id=${config.DISCORD_CLIENT_ID}&permissions=${invitePermissions}&scope=bot%20applications.commands`
+  );
 }

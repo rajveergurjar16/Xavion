@@ -9,6 +9,7 @@ import {
   time,
   TimestampStyles
 } from "discord.js";
+import { RESTJSONErrorCodes } from "discord-api-types/v10";
 import { logger } from "../logger.js";
 import { chooseRandom } from "../utils.js";
 import { embedColor } from "../config.js";
@@ -102,9 +103,36 @@ export async function finishGiveaway(
     giveaway.winnerCount
   );
 
-  const channel = await client.channels.fetch(giveaway.channelId);
-  if (!channel?.isTextBased() || channel.isDMBased()) throw new Error("Giveaway channel not found.");
-  const message = await channel.messages.fetch(messageId);
+  const channel = await client.channels.fetch(giveaway.channelId).catch((error: unknown) => {
+    if (isMissingDiscordResource(error)) return null;
+    throw error;
+  });
+  if (!channel?.isTextBased() || channel.isDMBased()) {
+    if (!reroll) {
+      await markGiveawayEnded(messageId);
+      logger.warn(
+        { messageId, channelId: giveaway.channelId },
+        "Giveaway channel is missing; marked ended"
+      );
+      return [];
+    }
+    throw new Error("Giveaway channel not found.");
+  }
+  const message = await channel.messages.fetch(messageId).catch((error: unknown) => {
+    if (isMissingDiscordResource(error)) return null;
+    throw error;
+  });
+  if (!message) {
+    if (!reroll) {
+      await markGiveawayEnded(messageId);
+      logger.warn(
+        { messageId, channelId: giveaway.channelId },
+        "Giveaway message is missing; marked ended"
+      );
+      return [];
+    }
+    throw new Error("Giveaway message not found.");
+  }
 
   if (!reroll) {
     await markGiveawayEnded(messageId);
@@ -137,6 +165,16 @@ export async function finishGiveaway(
     ]
   });
   return winners;
+}
+
+function isMissingDiscordResource(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === RESTJSONErrorCodes.UnknownMessage ||
+      error.code === RESTJSONErrorCodes.UnknownChannel)
+  );
 }
 
 export function startGiveawayScheduler(client: Client): NodeJS.Timeout {

@@ -23,6 +23,21 @@ export async function getGiveaway(
   return giveaways().findOne({ messageId });
 }
 
+export async function listGuildGiveaways(
+  guildId: string,
+  includeEnded = false,
+  limit = 10
+): Promise<GiveawayDocument[]> {
+  return giveaways()
+    .find({
+      guildId,
+      ...(includeEnded ? {} : { ended: false })
+    })
+    .sort({ endsAt: 1 })
+    .limit(limit)
+    .toArray();
+}
+
 export async function toggleGiveawayEntry(
   messageId: string,
   userId: string

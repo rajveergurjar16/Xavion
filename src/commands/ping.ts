@@ -63,17 +63,9 @@ async function sendPing(
   ctx: CommandContext,
   container: ContainerBuilder
 ): Promise<void> {
-  if (ctx.source.kind === "prefix") {
-    await ctx.source.message.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: { repliedUser: false }
-    });
-    return;
-  }
-
-  await ctx.source.interaction.reply({
+  await ctx.replyPayload?.({
     components: [container],
-    flags: MessageFlags.IsComponentsV2
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { repliedUser: false }
   });
 }

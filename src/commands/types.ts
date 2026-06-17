@@ -3,6 +3,7 @@ import type {
   Guild,
   GuildMember,
   GuildTextBasedChannel,
+  EmbedBuilder,
   Message,
   PermissionResolvable,
   SlashCommandBuilder,
@@ -10,6 +11,14 @@ import type {
   SlashCommandSubcommandsOnlyBuilder
 } from "discord.js";
 import type { ReplyTone } from "../ui/emojis.js";
+
+export interface CommandReplyPayload {
+  content?: string;
+  embeds?: EmbedBuilder[];
+  components?: unknown[];
+  flags?: unknown;
+  allowedMentions?: unknown;
+}
 
 export type CommandSource =
   | { kind: "prefix"; message: Message<true>; args: string[] }
@@ -20,7 +29,10 @@ export interface CommandContext {
   guild: Guild;
   member: GuildMember;
   channel: GuildTextBasedChannel;
+  startLoading?(content: string): Promise<void>;
+  getLoadingMessageId?(): string | null;
   reply(content: string, ephemeral?: boolean, tone?: ReplyTone): Promise<void>;
+  replyPayload?(payload: CommandReplyPayload, ephemeral?: boolean): Promise<void>;
 }
 
 export interface Command {
