@@ -150,12 +150,18 @@ function prefixContext(
   let loadingMessage: Message<true> | null = null;
   let editedLoading = false;
 
-  const sendPayload = async (payload: CommandReplyPayload): Promise<void> => {
+  const sendPayload = async (
+    payload: CommandReplyPayload,
+    autoDeleteMs?: number
+  ): Promise<void> => {
     const sanitizedPayload = stripEphemeralFlagFromPayload(payload);
     const messagePayload = {
       ...sanitizedPayload,
       allowedMentions: payload.allowedMentions ?? { repliedUser: false }
     } as Parameters<Message<true>["reply"]>[0];
+
+    let resultMessage: Message<true> | null = null;
+
     if (loadingMessage && !editedLoading) {
       editedLoading = true;
       const edited = await loadingMessage
@@ -163,18 +169,26 @@ function prefixContext(
           prepareLoadingEdit(messagePayload) as Parameters<Message<true>["edit"]>[0]
         )
         .then(
-          () => true,
+          (msg) => msg,
           (error: unknown) => {
-            if (isUnknownMessage(error)) return false;
+            if (isUnknownMessage(error)) return null;
             throw error;
           }
         );
-      if (edited) return;
-      loadingMessage = null;
-      await message.reply(messagePayload);
-      return;
+      if (edited) {
+        resultMessage = edited;
+      } else {
+        loadingMessage = null;
+        resultMessage = await message.reply(messagePayload);
+      }
+    } else {
+      resultMessage = await message.reply(messagePayload);
     }
-    await message.reply(messagePayload);
+
+    if (autoDeleteMs && resultMessage) {
+      const toDelete = resultMessage;
+      setTimeout(() => void toDelete.delete().catch(() => undefined), autoDeleteMs);
+    }
   };
 
   return {
@@ -194,11 +208,11 @@ function prefixContext(
     getLoadingMessageId() {
       return loadingMessage?.id ?? null;
     },
-    async reply(content, _ephemeral, tone = "info") {
-      await sendPayload({ embeds: [responseEmbed(content, tone)] });
+    async reply(content, _ephemeral, tone = "info", autoDeleteMs) {
+      await sendPayload({ embeds: [responseEmbed(content, tone)] }, autoDeleteMs);
     },
-    async replyPayload(payload) {
-      await sendPayload(payload);
+    async replyPayload(payload, _ephemeral, autoDeleteMs) {
+      await sendPayload(payload, autoDeleteMs);
     }
   };
 }
@@ -211,12 +225,16 @@ function slashContext(
 
   const sendPayload = async (
     payload: CommandReplyPayload,
-    ephemeral = false
+    ephemeral = false,
+    autoDeleteMs?: number
   ): Promise<void> => {
     const interactionPayload = {
       ...payload,
       flags: payload.flags ?? (ephemeral ? MessageFlags.Ephemeral : undefined)
     } as Parameters<ChatInputCommandInteraction<"cached">["reply"]>[0];
+
+    let resultMessage: Message | null = null;
+
     if (loadingStarted && !editedLoading) {
       editedLoading = true;
       const edited = await interaction
@@ -226,20 +244,32 @@ function slashContext(
           ) as Parameters<ChatInputCommandInteraction<"cached">["editReply"]>[0]
         )
         .then(
-          () => true,
+          (msg) => msg,
           (error: unknown) => {
-            if (isUnknownMessage(error)) return false;
+            if (isUnknownMessage(error)) return null;
             throw error;
           }
         );
-      if (edited) return;
-      await interaction.followUp(interactionPayload as Parameters<ChatInputCommandInteraction<"cached">["followUp"]>[0]);
-      return;
-    }
-    if (interaction.deferred || interaction.replied) {
-      await interaction.followUp(interactionPayload as Parameters<ChatInputCommandInteraction<"cached">["followUp"]>[0]);
+      if (edited) {
+        resultMessage = edited;
+      } else {
+        resultMessage = await interaction.followUp(
+          interactionPayload as Parameters<ChatInputCommandInteraction<"cached">["followUp"]>[0]
+        );
+      }
+    } else if (interaction.deferred || interaction.replied) {
+      resultMessage = await interaction.followUp(
+        interactionPayload as Parameters<ChatInputCommandInteraction<"cached">["followUp"]>[0]
+      );
     } else {
       await interaction.reply(interactionPayload);
+      resultMessage = await interaction.fetchReply().catch(() => null);
+    }
+
+    // Ephemeral messages ko delete() nahi kar sakte, isliye unke liye auto-delete skip.
+    if (autoDeleteMs && resultMessage && !ephemeral) {
+      const toDelete = resultMessage;
+      setTimeout(() => void toDelete.delete().catch(() => undefined), autoDeleteMs);
     }
   };
 
@@ -257,11 +287,11 @@ function slashContext(
     getLoadingMessageId() {
       return null;
     },
-    async reply(content, ephemeral = false, tone = "info") {
-      await sendPayload({ embeds: [responseEmbed(content, tone)] }, ephemeral);
+    async reply(content, ephemeral = false, tone = "info", autoDeleteMs) {
+      await sendPayload({ embeds: [responseEmbed(content, tone)] }, ephemeral, autoDeleteMs);
     },
-    async replyPayload(payload, ephemeral = false) {
-      await sendPayload(payload, ephemeral);
+    async replyPayload(payload, ephemeral = false, autoDeleteMs) {
+      await sendPayload(payload, ephemeral, autoDeleteMs);
     }
   };
 }

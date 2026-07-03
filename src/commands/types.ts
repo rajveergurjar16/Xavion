@@ -31,8 +31,17 @@ export interface CommandContext {
   channel: GuildTextBasedChannel;
   startLoading?(content: string, replyToUser?: boolean): Promise<void>;
   getLoadingMessageId?(): string | null;
-  reply(content: string, ephemeral?: boolean, tone?: ReplyTone): Promise<void>;
-  replyPayload?(payload: CommandReplyPayload, ephemeral?: boolean): Promise<void>;
+  reply(
+    content: string,
+    ephemeral?: boolean,
+    tone?: ReplyTone,
+    autoDeleteMs?: number
+  ): Promise<void>;
+  replyPayload?(
+    payload: CommandReplyPayload,
+    ephemeral?: boolean,
+    autoDeleteMs?: number
+  ): Promise<void>;
 }
 
 export interface Command {

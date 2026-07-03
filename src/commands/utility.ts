@@ -6,6 +6,7 @@ import {
   type Role
 } from "discord.js";
 import { setAfkUser } from "../database/repositories/afk.js";
+import { config } from "../config.js";
 import { extractId, formatDuration, parseDuration, truncate } from "../utils.js";
 import { hierarchyError, prefixArgs, slash, targetMember, textOption } from "./helpers.js";
 import type { Command, CommandContext } from "./types.js";
@@ -177,6 +178,22 @@ export const roleCommand: Command = {
   }
 };
 
+/**
+ * Returns the raw text typed after the command name (prefix + "say"/"announce"),
+ * preserving multiple spaces and newlines exactly as the user typed them.
+ * Returns null for slash commands or an empty string if nothing follows the command name.
+ */
+function rawCommandBody(ctx: CommandContext): string | null {
+  if (ctx.source.kind !== "prefix") return null;
+  const content = ctx.source.message.content;
+  const hasPrefix = content.toLowerCase().startsWith(config.PREFIX.toLowerCase());
+  const body = hasPrefix ? content.slice(config.PREFIX.length) : content;
+  const trimmedBody = body.replace(/^\s+/, "");
+  const spaceIdx = trimmedBody.search(/\s/);
+  if (spaceIdx === -1) return "";
+  return trimmedBody.slice(spaceIdx + 1);
+}
+
 function parseSayInput(
   ctx: CommandContext
 ): { message: string; channel: GuildTextBasedChannel } | null {
@@ -191,12 +208,22 @@ function parseSayInput(
     };
   }
 
-  const args = prefixArgs(ctx);
-  const last = args.at(-1);
-  const target = last ? resolveOptionalTextChannel(ctx, last) : null;
-  const channelWasProvided = Boolean(target);
-  const channel = target ?? ctx.channel;
-  const message = (channelWasProvided ? args.slice(0, -1) : args).join(" ").trim();
+  const raw = rawCommandBody(ctx);
+  if (!raw) return null;
+
+  let message = raw;
+  let channel: GuildTextBasedChannel = ctx.channel;
+
+  const channelMatch = raw.match(/<#(\d+)>\s*$/);
+  if (channelMatch && typeof channelMatch.index === "number") {
+    const resolved = resolveOptionalTextChannel(ctx, channelMatch[0]);
+    if (resolved) {
+      channel = resolved;
+      message = raw.slice(0, channelMatch.index);
+    }
+  }
+
+  message = message.trim();
   return message ? { message, channel } : null;
 }
 

@@ -77,19 +77,14 @@ export const purgeCommand: Command = {
       details: `${deleted.size} message(s) deleted.`,
       dmStatus: "not_applicable"
     });
+
     const content = `Deleted **${deleted.size}** message(s)${
       parsed.userId ? ` from <@${parsed.userId}>` : ""
-    }. Messages older than 14 days are skipped.`;
-    if (ctx.source.kind === "prefix") {
-      const sent = await ctx.channel.send({
-        embeds: [responseEmbed(content, "success")],
-        allowedMentions: { users: [], roles: [] }
-      });
-      setTimeout(() => void sent.delete().catch(() => undefined), 8_000);
-      return;
-    }
+    }.`;
 
-    await ctx.reply(content, true, "success");
+    // Loading message ko hi edit karke success message banaya jaata hai,
+    // fir 8 seconds baad wahi auto-delete ho jaata hai (handler.ts mein handle hota hai).
+    await ctx.reply(content, true, "success", 8_000);
   }
 };
 
