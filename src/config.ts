@@ -20,13 +20,12 @@ const schema = z.object({
     z.string().url().optional()
   ),
   PREFIX: z.string().min(1).max(5).default("X"),
-  BOT_ACTIVITY_TEXT: z.string().min(1).max(128).default("X dono"),
-  BOT_ACTIVITY_TYPE: z
-    .enum(["custom", "playing", "listening", "watching", "competing"])
-    .default("custom"),
   BOT_STATUS: z
     .enum(["online", "idle", "dnd", "invisible"])
     .default("dnd"),
+  // Discord only shows the "Streaming" badge when the activity has a valid
+  // Twitch or YouTube URL attached. Used by the rotating presence.
+  BOT_STREAM_URL: z.string().url().default("https://twitch.tv/discord"),
   EMBED_COLOR: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color such as #ccad00")

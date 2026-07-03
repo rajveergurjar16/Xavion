@@ -1,10 +1,8 @@
 import {
-  ActivityType,
   Client,
   Events,
   GatewayIntentBits,
-  Partials,
-  type PresenceData
+  Partials
 } from "discord.js";
 import { config } from "./config.js";
 import {
@@ -12,39 +10,13 @@ import {
   initializeDatabase
 } from "./database/index.js";
 import { startGiveawayScheduler } from "./services/giveaways.js";
+import { startPresenceRotation } from "./services/presence.js";
 import { registerHandlers } from "./events/handler.js";
 import { logger } from "./logger.js";
 import {
   ensureAllModLogChannels,
   registerModLogSetup
 } from "./services/modlogs.js";
-
-const activityTypes = {
-  custom: ActivityType.Custom,
-  playing: ActivityType.Playing,
-  listening: ActivityType.Listening,
-  watching: ActivityType.Watching,
-  competing: ActivityType.Competing
-} as const;
-
-function presenceData(): PresenceData {
-  const activityType = activityTypes[config.BOT_ACTIVITY_TYPE];
-  return {
-    activities: [
-      activityType === ActivityType.Custom
-        ? {
-            name: "Custom Status",
-            state: config.BOT_ACTIVITY_TEXT,
-            type: activityType
-          }
-        : {
-            name: config.BOT_ACTIVITY_TEXT,
-            type: activityType
-          }
-    ],
-    status: config.BOT_STATUS
-  };
-}
 
 const client = new Client({
   intents: [
@@ -59,7 +31,7 @@ const client = new Client({
     parse: ["users", "roles"],
     repliedUser: false
   },
-  presence: presenceData(),
+  presence: { status: config.BOT_STATUS },
   failIfNotExists: false
 });
 
@@ -68,9 +40,10 @@ registerHandlers(client);
 registerModLogSetup(client);
 
 let giveawayTimer: NodeJS.Timeout | undefined;
+let presenceTimer: NodeJS.Timeout | undefined;
 
 client.once(Events.ClientReady, async (readyClient) => {
-  readyClient.user.setPresence(presenceData());
+  presenceTimer = startPresenceRotation(readyClient);
   await ensureAllModLogChannels(readyClient);
   giveawayTimer = startGiveawayScheduler(readyClient);
   logger.info(
@@ -80,7 +53,8 @@ client.once(Events.ClientReady, async (readyClient) => {
 });
 
 client.on(Events.ShardResume, () => {
-  client.user?.setPresence(presenceData());
+  if (presenceTimer) clearInterval(presenceTimer);
+  if (client.isReady()) presenceTimer = startPresenceRotation(client);
 });
 
 client.on(Events.Error, (error) => logger.error({ error }, "Discord client error"));
@@ -89,6 +63,7 @@ client.on(Events.Warn, (message) => logger.warn({ message }, "Discord client war
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, "Shutting down");
   if (giveawayTimer) clearInterval(giveawayTimer);
+  if (presenceTimer) clearInterval(presenceTimer);
   client.destroy();
   await closeDatabase();
   process.exit(0);
