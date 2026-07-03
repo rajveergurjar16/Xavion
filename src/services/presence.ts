@@ -35,23 +35,23 @@ function buildSteps(client: Client<true>): PresenceStep[] {
   return [
     {
       // Renders as: "Streaming to X | Watch with me..!"
-      name: "to X | Watch with me..!",
+      name: "Streaming to X | Watch with me..!",
       type: ActivityType.Streaming,
       url: config.BOT_STREAM_URL
     },
     {
       // Renders as: "Listening to {users} users across {servers} servers"
-      name: `${userCount} users across ${guildCount} servers`,
-      type: ActivityType.Listening
+      name: `Playing With ${userCount} users across ${guildCount} servers`,
+      type: ActivityType.Playing
     },
     {
       // Renders as: "Playing beyond limits since {uptime}"
-      name: `beyond limits since ${uptime}`,
+      name: `Playing beyond limits since ${uptime}`,
       type: ActivityType.Playing
     },
     {
       // Renders as: "Watching the {servers} Servers"
-      name: `the ${guildCount} Servers`,
+      name: `Watching ${guildCount} Servers`,
       type: ActivityType.Watching
     }
   ];
